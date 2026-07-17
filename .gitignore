@@ -1,0 +1,16 @@
+node_modules/
+.npm-cache/
+dist/
+.vite/
+.vite-dev*.log
+
+# Local design and QA material is not required by the deployed website.
+assets/
+design-qa/
+design-qa-evidence/
+design-reference/
+design-qa.md
+AGENTS.md
+
+# Local machine package-manager settings must not be published.
+.npmrc

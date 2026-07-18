@@ -23,9 +23,9 @@ const PROOF_META = [
 
 
 const WAREHOUSE_IMAGES = [
-  "/assets/company/warehouse-01.png",
-  "/assets/company/warehouse-02.png",
-  "/assets/company/warehouse-03.png",
+  "/assets/company/warehouse-01.png?v=20260718-1",
+  "/assets/company/warehouse-02.png?v=20260718-1",
+  "/assets/company/warehouse-03.png?v=20260718-1",
 ];
 
 

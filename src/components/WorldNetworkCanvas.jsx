@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 
 
 const MAP_ASPECT_RATIO = 228 / 111;
-const BASE_IMAGE_URL = "/assets/company/world-network-base.png";
+const BASE_IMAGE_URL = "/assets/company/world-network-base.png?v=20260718-1";
 const GUANGZHOU = [0.736, 0.555];
 
 const ROUTES = [

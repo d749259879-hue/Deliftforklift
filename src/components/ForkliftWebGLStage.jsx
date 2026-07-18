@@ -14,7 +14,7 @@ import { gsap } from "gsap";
 import { AdditiveBlending, Box3, Group, MathUtils, Sphere, Vector3 } from "three";
 
 
-const MODEL_URL = "/assets/forklift-3d/delift-forklift.glb?v=20260717-4";
+const MODEL_URL = "/assets/forklift-3d/delift-forklift.glb?v=20260718-1";
 
 const CATEGORY_TO_SYSTEM = {
   "brake-master-cylinder": "brakes",
@@ -966,6 +966,7 @@ function Scene({
   expanded,
   items,
   lang,
+  mobileMode,
   variant,
   reducedMotion,
   onActivate,
@@ -982,7 +983,7 @@ function Scene({
         variant={variant}
       />
       <ContextLossGuard onError={onError} />
-      <Environment resolution={128} background={false}>
+      <Environment resolution={mobileMode ? 48 : 96} background={false}>
         <Lightformer
           color="#eafcff"
           intensity={2.8}
@@ -1007,12 +1008,12 @@ function Scene({
       <ambientLight intensity={0.68} />
       <hemisphereLight args={["#bceeff", "#08090a", 0.92]} />
       <directionalLight
-        castShadow
+        castShadow={!mobileMode}
         color="#eefaff"
         intensity={3.2}
         position={[-5, 8, 7]}
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        shadow-mapSize-width={512}
+        shadow-mapSize-height={512}
       />
       <directionalLight color="#8edfff" intensity={1.25} position={[6, 5, 7]} />
       <directionalLight color="#ffffff" intensity={1.1} position={[0, 6, -8]} />
@@ -1020,7 +1021,7 @@ function Scene({
       <spotLight color="#36d5ff" intensity={7.5} angle={0.5} penumbra={0.84} position={[0, 8, 5]} />
 
       <Sparkles
-        count={reducedMotion ? 22 : (expanded ? 118 : 42)}
+        count={reducedMotion ? 12 : mobileMode ? (expanded ? 34 : 14) : (expanded ? 72 : 28)}
         color={expanded ? "#77e8ff" : "#45d9ff"}
         opacity={expanded ? 0.42 : 0.16}
         scale={[11, 5.5, 10]}
@@ -1028,7 +1029,7 @@ function Scene({
         speed={reducedMotion ? 0 : (expanded ? 0.28 : 0.08)}
       />
       <Sparkles
-        count={reducedMotion ? 5 : (expanded ? 24 : 8)}
+        count={reducedMotion ? 3 : mobileMode ? (expanded ? 7 : 2) : (expanded ? 14 : 5)}
         color="#ffb23b"
         opacity={expanded ? 0.34 : 0.08}
         scale={[10, 4.8, 9]}
@@ -1060,15 +1061,18 @@ function Scene({
         onReady={onReady}
         onSelectCategory={onSelectCategory}
       />
-      <ContactShadows
-        position={[0, -1.405, 0]}
-        opacity={0.26}
-        scale={10}
-        blur={3.2}
-        far={5.5}
-        resolution={512}
-        frames={reducedMotion ? 1 : (expanded ? Infinity : 100)}
-      />
+      {!mobileMode ? (
+        <ContactShadows
+          key={expanded ? "expanded" : "assembled"}
+          position={[0, -1.405, 0]}
+          opacity={0.24}
+          scale={10}
+          blur={3.2}
+          far={5.5}
+          resolution={256}
+          frames={1}
+        />
+      ) : null}
       <OrbitingCamera expanded={expanded} reducedMotion={reducedMotion} />
     </>
   );
@@ -1076,17 +1080,16 @@ function Scene({
 
 
 export default function ForkliftWebGLStage({ onBackgroundActivate, ...props }) {
-  const [dprLimit, setDprLimit] = useState(() => (
-    window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 760 ? 1.25 : 1.5
+  const [mobileMode, setMobileMode] = useState(() => (
+    window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 760
   ));
 
   useEffect(() => {
-    const updateDprLimit = () => {
-      const isMobile = window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 760;
-      setDprLimit(isMobile ? 1.25 : 1.5);
+    const updateMobileMode = () => {
+      setMobileMode(window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 760);
     };
-    window.addEventListener("resize", updateDprLimit, { passive: true });
-    return () => window.removeEventListener("resize", updateDprLimit);
+    window.addEventListener("resize", updateMobileMode, { passive: true });
+    return () => window.removeEventListener("resize", updateMobileMode);
   }, []);
 
   return (
@@ -1100,15 +1103,15 @@ export default function ForkliftWebGLStage({ onBackgroundActivate, ...props }) {
         near: 0.1,
         far: 80,
       }}
-      dpr={dprLimit}
-      frameloop={props.reducedMotion ? "demand" : "always"}
+      dpr={mobileMode ? 0.9 : 1.25}
+      frameloop={props.reducedMotion || props.active === false ? "demand" : "always"}
       gl={{
         alpha: true,
-        antialias: true,
-        powerPreference: "high-performance",
+        antialias: !mobileMode,
+        powerPreference: mobileMode ? "default" : "high-performance",
         preserveDrawingBuffer: false,
       }}
-      shadows="basic"
+      shadows={mobileMode ? false : "basic"}
       onPointerMissed={(event) => {
         if ((event.delta ?? 0) > 5) return;
         onBackgroundActivate?.();
@@ -1118,7 +1121,7 @@ export default function ForkliftWebGLStage({ onBackgroundActivate, ...props }) {
         gl.toneMappingExposure = 1.3;
       }}
     >
-      <Scene {...props} />
+      <Scene {...props} mobileMode={mobileMode} />
     </Canvas>
   );
 }

@@ -74,6 +74,41 @@ input:focus-visible {
   background: var(--black);
 }
 
+.app-fatal-error {
+  display: grid;
+  min-height: 100vh;
+  padding: 32px;
+  place-content: center;
+  justify-items: center;
+  background: radial-gradient(circle at 50% 42%, #10252d 0, #050709 46%, #020304 100%);
+  color: #f1f5f6;
+  text-align: center;
+}
+
+.app-fatal-error img {
+  width: 150px;
+}
+
+.app-fatal-error h1 {
+  margin: 28px 0 8px;
+  font-size: clamp(24px, 4vw, 38px);
+}
+
+.app-fatal-error p {
+  margin: 0 0 24px;
+  color: #9aacb4;
+}
+
+.app-fatal-error button {
+  min-height: 44px;
+  padding: 0 24px;
+  border: 1px solid var(--cyan-bright);
+  border-radius: 4px;
+  background: rgba(7, 154, 188, 0.13);
+  color: #fff;
+  cursor: pointer;
+}
+
 .ui-icon {
   display: block;
   width: 1em;
@@ -93,9 +128,8 @@ input:focus-visible {
   height: var(--header-height);
   padding: 0 44px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.11);
-  background: rgba(3, 5, 7, 0.95);
+  background: rgba(3, 5, 7, 0.985);
   color: #f4f5f4;
-  backdrop-filter: blur(18px);
 }
 
 .brand-button {
@@ -253,7 +287,7 @@ input:focus-visible {
   border-radius: 6px;
   background: rgba(5, 10, 13, 0.98);
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.58), 0 0 34px rgba(18, 155, 190, 0.1);
-  backdrop-filter: blur(20px);
+  contain: layout paint;
   animation: language-menu-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -395,7 +429,7 @@ input:focus-visible {
   z-index: 150;
   inset: 0;
   overflow: hidden;
-  background: #020304;
+  background: transparent;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -409,7 +443,7 @@ input:focus-visible {
   width: 120vmax;
   height: 120vmax;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 181, 20, 0.36), rgba(18, 163, 199, 0.16) 18%, #020304 52%);
+  background: radial-gradient(circle, rgba(255, 181, 20, 0.22), rgba(18, 163, 199, 0.12) 20%, rgba(2, 3, 4, 0.32) 48%, transparent 70%);
   transform: translate(-50%, -50%) scale(0.08);
   transition: transform 620ms cubic-bezier(0.65, 0, 0.35, 1);
 }
@@ -459,7 +493,6 @@ input:focus-visible {
   border-radius: 6px;
   background: rgba(4, 10, 13, 0.68);
   color: #d9ddde;
-  backdrop-filter: blur(14px);
   pointer-events: none;
   transform: translateY(-50%);
 }
@@ -613,7 +646,6 @@ input:focus-visible {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  backdrop-filter: blur(8px);
 }
 
 .category-rail__section h3 span {
@@ -1114,7 +1146,17 @@ input:focus-visible {
   transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
+.catalog-product::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background: linear-gradient(110deg, #f4f7f8 24%, #e8f0f3 42%, #f4f7f8 60%);
+  content: "";
+}
+
 .catalog-product img {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   height: auto;
@@ -1478,7 +1520,8 @@ input:focus-visible {
 }
 
 .product-actions a,
-.product-actions button {
+.product-actions button,
+.product-actions .product-action--disabled {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1491,6 +1534,14 @@ input:focus-visible {
   cursor: pointer;
 }
 
+.product-actions .product-action--disabled,
+.product-actions button:disabled {
+  border-color: #d4dde1;
+  background: #f2f5f6;
+  color: #8a969c;
+  cursor: not-allowed;
+}
+
 .product-actions a:first-child {
   border-color: var(--amber);
   background: var(--amber);
@@ -1501,6 +1552,15 @@ input:focus-visible {
 .product-actions button.is-copied {
   border-color: #3b9a69;
   color: #2d8458;
+}
+
+.product-actions button .copy-state--done,
+.product-actions button.is-copied .copy-state--idle {
+  display: none;
+}
+
+.product-actions button.is-copied .copy-state--done {
+  display: inline-flex;
 }
 
 .product-navigation {

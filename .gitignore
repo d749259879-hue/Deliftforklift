@@ -6,6 +6,7 @@ dist/
 
 # Local design and QA material is not required by the deployed website.
 /assets/
+scripts/*.validation.json
 design-qa/
 design-qa-evidence/
 design-reference/

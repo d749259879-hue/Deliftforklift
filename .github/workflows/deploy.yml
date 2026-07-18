@@ -39,8 +39,14 @@ jobs:
       - name: Validate locales
         run: npm run validate:locales
 
+      - name: Validate source assets
+        run: npm run validate:assets
+
       - name: Build website
         run: npm run build
+
+      - name: Validate built assets
+        run: npm run validate:dist-assets
 
       - name: Setup Pages
         uses: actions/configure-pages@v6

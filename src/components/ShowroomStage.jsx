@@ -35,25 +35,8 @@ class WebGLErrorBoundary extends Component {
 
 
 function supportsShowroomWebGL() {
-  if (typeof document === "undefined") return false;
-
-  try {
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("webgl2", {
-      alpha: true,
-      antialias: false,
-      failIfMajorPerformanceCaveat: false,
-    }) || canvas.getContext("webgl", {
-      alpha: true,
-      antialias: false,
-      failIfMajorPerformanceCaveat: false,
-    });
-    if (!context) return false;
-    context.getExtension("WEBGL_lose_context")?.loseContext();
-    return true;
-  } catch {
-    return false;
-  }
+  if (typeof window === "undefined") return false;
+  return Boolean(window.WebGL2RenderingContext || window.WebGLRenderingContext);
 }
 
 
@@ -67,6 +50,7 @@ export default function ShowroomStage({
 }) {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [stageVisible, setStageVisible] = useState(true);
   const [webglState, setWebglState] = useState("idle");
   const [webglRequested, setWebglRequested] = useState(false);
   const stageRef = useRef(null);
@@ -85,6 +69,17 @@ export default function ShowroomStage({
       window.clearTimeout(focusTimerRef.current);
       media.removeEventListener?.("change", syncPreference);
     };
+  }, []);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || typeof IntersectionObserver === "undefined") return undefined;
+    const observer = new IntersectionObserver(
+      ([entry]) => setStageVisible(entry.isIntersecting && entry.intersectionRatio > 0.01),
+      { threshold: [0, 0.01] },
+    );
+    observer.observe(stage);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -183,6 +178,7 @@ export default function ShowroomStage({
                   lang={lang}
                   variant={variant}
                   reducedMotion={reducedMotion}
+                  active={stageVisible}
                   onActivate={handleForkliftActivate}
                   onBackgroundActivate={releaseFocus}
                   onError={handleWebGLError}
@@ -209,6 +205,9 @@ export default function ShowroomStage({
                 ? "当前设备无法显示实时 3D 展台"
                 : "Live 3D showroom is unavailable on this device"}
             </small>
+            <button type="button" onClick={() => window.location.reload()}>
+              重新加载 3D / Retry
+            </button>
           </div>
         ) : null}
 

@@ -11,7 +11,7 @@
   min-height: 620px;
   overflow: hidden;
   isolation: isolate;
-  background: #030608 url("/assets/showroom-background-3d-v1.png") center / cover no-repeat;
+  background: #030608 url("/assets/showroom-background-3d-v1.png?v=20260718-1") center / cover no-repeat;
   color: #fff;
   container-type: inline-size;
 }
@@ -133,6 +133,18 @@
   color: rgba(226, 238, 242, 0.76);
   text-align: center;
   backdrop-filter: blur(10px);
+}
+
+.showroom-loading--unavailable button {
+  min-height: 36px;
+  margin-top: 10px;
+  padding: 0 14px;
+  border: 1px solid rgba(36, 194, 228, 0.6);
+  border-radius: 3px;
+  background: rgba(7, 18, 23, 0.88);
+  color: #dff9ff;
+  cursor: pointer;
+  font-size: 10px;
 }
 
 .showroom-scan {

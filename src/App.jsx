@@ -1,4 +1,5 @@
 import {
+  startTransition,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -107,8 +108,12 @@ const railCategories = RAIL_CATEGORY_IDS
   .map((categoryId) => categories.find((category) => category.id === categoryId))
   .filter(Boolean);
 const RAIL_CATEGORY_ID_SET = new Set(railCategories.map((category) => category.id));
+const displayCategories = [
+  ...railCategories,
+  ...categories.filter((category) => !RAIL_CATEGORY_ID_SET.has(category.id)),
+];
 const PAGE_CONNECTOR_LOCALES = new Set(["ru", "hi"]);
-const DEFAULT_CATEGORY_ID = heroCategories[0]?.id || categories[0]?.id || "";
+const DEFAULT_CATEGORY_ID = heroCategories[0]?.id || displayCategories[0]?.id || "";
 const PRODUCT_COUNTS = products.reduce((counts, product) => {
   counts[product.category] = (counts[product.category] || 0) + 1;
   return counts;
@@ -116,6 +121,7 @@ const PRODUCT_COUNTS = products.reduce((counts, product) => {
 
 
 const PRODUCTS_PER_PAGE = 12;
+const ASSET_VERSION = "20260718-1";
 
 
 function Icon({ name, className = "" }) {
@@ -129,6 +135,31 @@ function normalize(value) {
     .normalize("NFKC")
     .toUpperCase()
     .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+
+function versionAsset(source) {
+  if (!source || !source.startsWith("/assets/")) return source;
+  return `${source}${source.includes("?") ? "&" : "?"}v=${ASSET_VERSION}`;
+}
+
+
+async function writeClipboardText(value) {
+  if (window.isSecureContext && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = value;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  document.body.appendChild(textArea);
+  textArea.select();
+  const copied = document.execCommand("copy");
+  textArea.remove();
+  if (!copied) throw new Error("Clipboard access is unavailable.");
 }
 
 
@@ -166,7 +197,7 @@ function Header({ lang, onSelectLanguage, onNavigate, onHome }) {
   return (
     <header className="site-header">
       <button className="brand-button" type="button" onClick={onHome} aria-label={t.home}>
-        <img src="/assets/delift-logo.png" alt="Delift" />
+        <img src={versionAsset("/assets/delift-logo.png")} alt="Delift" fetchPriority="high" />
       </button>
 
       <button
@@ -267,8 +298,7 @@ function CategoryRail({ lang, activeCategory, onSelect }) {
   }
 
   function renderCategory(category, inFullCatalog = false) {
-    const categoryIndex = (inFullCatalog ? categories : railCategories)
-      .findIndex((item) => item.id === category.id);
+    const categoryIndex = displayCategories.findIndex((item) => item.id === category.id);
     const selected = activeCategory === category.id;
     const count = PRODUCT_COUNTS[category.id] ?? category.productCount ?? 0;
     const labels = getCategoryLabels(category, lang);
@@ -301,10 +331,10 @@ function CategoryRail({ lang, activeCategory, onSelect }) {
         </label>
         <select
           id="mobile-category-select"
-          value={categories.some((category) => category.id === activeCategory) ? activeCategory : DEFAULT_CATEGORY_ID}
+          value={displayCategories.some((category) => category.id === activeCategory) ? activeCategory : DEFAULT_CATEGORY_ID}
           onChange={(event) => onSelect(event.target.value)}
         >
-          {categories.map((category) => {
+          {displayCategories.map((category) => {
             const labels = getCategoryLabels(category, lang);
             return (
               <option key={category.id} value={category.id}>
@@ -357,10 +387,12 @@ function CategoryRail({ lang, activeCategory, onSelect }) {
             id="full-category-panel"
             className="category-panel category-rail__desktop-only"
             aria-label={t.fullCatalog}
+            role="dialog"
+            aria-modal="true"
           >
             <header className="category-panel__header">
               <span><strong>{t.fullCatalog}</strong><small>{moreCategories.length} {t.categories}</small></span>
-              <button type="button" onClick={() => setCatalogOpen(false)} aria-label={t.close}>
+              <button type="button" onClick={() => setCatalogOpen(false)} aria-label={t.closeFullCatalog}>
                 <Icon name="close" />
               </button>
             </header>
@@ -421,7 +453,7 @@ function SearchToolbar({ lang, query, onQueryChange, onSubmit, suggestions, onPi
           <div className="search-suggestions" role="listbox" aria-label={t.searchLabel}>
             {suggestions.map((product) => (
               <button key={product.id} type="button" role="option" onClick={() => onPick(product)}>
-                <img src={product.cellImage} alt="" />
+                <img src={versionAsset(product.cellImage)} alt="" />
                 <span>
                   <strong>{productPrimaryLabel(product)}</strong>
                   <small>{[product.catalogCode, product.model].filter(Boolean).join(" · ") || "Delift"}</small>
@@ -440,7 +472,7 @@ function SearchToolbar({ lang, query, onQueryChange, onSubmit, suggestions, onPi
 }
 
 
-function ProductCard({ product, lang, selected, highlighted, onOpen }) {
+function ProductCard({ product, lang, selected, highlighted, priority, onOpen }) {
   const t = getLocalePack(lang).ui;
   const productLabel = productPrimaryLabel(product);
   return (
@@ -451,7 +483,13 @@ function ProductCard({ product, lang, selected, highlighted, onOpen }) {
       onClick={() => onOpen(product)}
       aria-label={`${t.details}: ${productLabel}`}
     >
-      <img src={product.cellImage} alt={`${productLabel} ${product.model || "Delift"}`} loading="lazy" />
+      <img
+        src={versionAsset(product.cellImage)}
+        alt={`${productLabel} ${product.model || "Delift"}`}
+        loading={priority ? "eager" : "lazy"}
+        fetchPriority={priority ? "high" : "auto"}
+        decoding="async"
+      />
       <span className="catalog-product__locator" aria-hidden="true" />
       <span className="catalog-product__action" aria-hidden="true">
         {t.viewDetails}<Icon name="arrow" />
@@ -491,6 +529,7 @@ function Pager({ lang, count, currentPage, pageCount, pageSize, onPageChange }) 
   function jump(event) {
     event.preventDefault();
     const nextPage = Math.min(pageCount, Math.max(1, Number.parseInt(jumpPage, 10) || currentPage));
+    setJumpPage(String(nextPage));
     onPageChange(nextPage);
   }
 
@@ -538,7 +577,7 @@ function Pager({ lang, count, currentPage, pageCount, pageSize, onPageChange }) 
           {" · "}{t.perPage} <strong>{pageSize}</strong> {t.productsUnit}
         </span>
         {pageCount > 1 ? (
-          <form onSubmit={jump} className="catalog-pager__jump">
+            <form onSubmit={jump} className="catalog-pager__jump" noValidate>
             <label htmlFor="catalog-page-jump">{t.goTo}</label>
             <input
               id="catalog-page-jump"
@@ -561,21 +600,43 @@ function Pager({ lang, count, currentPage, pageCount, pageSize, onPageChange }) 
 function ProductDrawer({ lang, product, productIndex, categoryProducts, onClose, onMove, onOpenRelated }) {
   const t = getLocalePack(lang).ui;
   const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef(0);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const related = categoryProducts.filter((item) => item.id !== product.id).slice(0, 2);
   const productLabel = productPrimaryLabel(product);
-  const copyValue = product.partNo || product.catalogCode || product.model || product.id;
+  const copyValue = product.partNo || product.catalogCode || "";
+  const hasInquiryIdentifier = Boolean(copyValue);
   const missingValue = t.notListedInCatalog || "Not listed in the source catalog";
   const sourceText = String(product.ocrText || "").trim();
 
   useEffect(() => {
+    window.clearTimeout(copyTimerRef.current);
     setCopied(false);
+    return () => window.clearTimeout(copyTimerRef.current);
   }, [product.id]);
 
+  useEffect(() => {
+    const lockBackground = window.matchMedia("(max-width: 1040px)").matches;
+    const previousOverflow = document.body.style.overflow;
+    if (lockBackground) document.body.style.overflow = "hidden";
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") onCloseRef.current?.();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+      if (lockBackground) document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   async function copyPartNumber() {
+    if (!hasInquiryIdentifier) return;
     try {
-      await navigator.clipboard.writeText(copyValue);
+      await writeClipboardText(copyValue);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
+      window.clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = window.setTimeout(() => setCopied(false), 1800);
     } catch {
       setCopied(false);
     }
@@ -585,7 +646,7 @@ function ProductDrawer({ lang, product, productIndex, categoryProducts, onClose,
   const quoteBody = encodeURIComponent(`Part No.: ${product.partNo || "-"}\nModel: ${product.model || "-"}\nSpecification: ${product.spec || "-"}\nCatalog: ${product.catalogCode || "-"}`);
 
   return (
-    <aside className="product-drawer" aria-label={`${t.details}: ${productLabel}`}>
+    <aside className="product-drawer" role="dialog" aria-modal="true" aria-label={`${t.details}: ${productLabel}`}>
       <div className="product-drawer__header">
         <div><strong>{t.details}</strong><small>{t.detailSecondary}</small></div>
         <span>{productIndex + 1} / {products.length}</span>
@@ -594,7 +655,7 @@ function ProductDrawer({ lang, product, productIndex, categoryProducts, onClose,
 
       <div className="product-drawer__scroll">
         <figure className="product-drawer__cell">
-          <img src={product.cellImage} alt={`${productLabel} ${product.model || "Delift"}`} />
+          <img src={versionAsset(product.cellImage)} alt={`${productLabel} ${product.model || "Delift"}`} decoding="async" />
         </figure>
 
         <dl className="product-specification">
@@ -612,11 +673,27 @@ function ProductDrawer({ lang, product, productIndex, categoryProducts, onClose,
         ) : null}
 
         <div className="product-actions">
-          <a href={`mailto:fpptc@yahoo.com?subject=${quoteSubject}&body=${quoteBody}`}>
-            <Icon name="mail" />{t.requestQuote}
-          </a>
-          <button type="button" onClick={copyPartNumber} className={copied ? "is-copied" : ""}>
-            <Icon name={copied ? "check" : "copy"} />{copied ? t.copied : t.copyPartNo}
+          {hasInquiryIdentifier ? (
+            <a href={`mailto:fpptc@yahoo.com?subject=${quoteSubject}&body=${quoteBody}`}>
+              <Icon name="mail" />{t.requestQuote}
+            </a>
+          ) : (
+            <span className="product-action--disabled" aria-disabled="true">
+              <Icon name="mail" />{t.requestQuote}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={copyPartNumber}
+            className={copied ? "is-copied" : ""}
+            aria-label={copied ? t.copied : t.copyPartNo}
+            translate="no"
+            disabled={!hasInquiryIdentifier}
+          >
+            <Icon name="copy" className="copy-state copy-state--idle" />
+            <Icon name="check" className="copy-state copy-state--done" />
+            <span className="copy-state copy-state--idle">{t.copyPartNo}</span>
+            <span className="copy-state copy-state--done" aria-live="polite">{t.copied}</span>
           </button>
         </div>
 
@@ -635,7 +712,7 @@ function ProductDrawer({ lang, product, productIndex, categoryProducts, onClose,
           <div>
             {related.map((item) => (
               <button key={item.id} type="button" onClick={() => onOpenRelated(item)}>
-                <img src={item.cellImage} alt={`${productPrimaryLabel(item)} ${item.model || "Delift"}`} loading="lazy" />
+                <img src={versionAsset(item.cellImage)} alt={`${productPrimaryLabel(item)} ${item.model || "Delift"}`} loading="lazy" />
               </button>
             ))}
           </div>
@@ -677,7 +754,7 @@ function CatalogScreen({
     || categories[0]
     || { id: "", zh: "", en: "" };
   const activeCategoryLabels = getCategoryLabels(activeCategoryData, lang);
-  const activeCategoryIndex = Math.max(0, categories.findIndex((item) => item.id === activeCategory));
+  const activeCategoryIndex = Math.max(0, displayCategories.findIndex((item) => item.id === activeCategory));
   const productIndex = selectedProduct ? products.findIndex((item) => item.id === selectedProduct.id) : -1;
   const categoryProducts = selectedProduct
     ? products.filter((item) => item.category === selectedProduct.category)
@@ -731,17 +808,18 @@ function CatalogScreen({
                 {activeCategoryLabels.secondary}
               </small>
             </div>
-            <span>{String(activeCategoryIndex + 1).padStart(2, "0")} / {String(categories.length).padStart(2, "0")}</span>
+            <span>{String(activeCategoryIndex + 1).padStart(2, "0")} / {String(displayCategories.length).padStart(2, "0")}</span>
           </div>
 
           <div className="catalog-grid">
-            {visibleProducts.map((product) => (
+            {visibleProducts.map((product, index) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 lang={lang}
                 selected={selectedProduct?.id === product.id}
                 highlighted={highlightedId === product.id}
+                priority={index < 4}
                 onOpen={onOpenProduct}
               />
             ))}
@@ -777,10 +855,16 @@ function CatalogScreen({
 
 export function App() {
   const [lang, setLang] = useState(() => {
-    const storedLanguage = localStorage.getItem("delift-language-v2");
-    return storedLanguage ? getLanguage(storedLanguage).code : "zh";
+    try {
+      const storedLanguage = localStorage.getItem("delift-language-v2");
+      return storedLanguage ? getLanguage(storedLanguage).code : "zh";
+    } catch {
+      return "zh";
+    }
   });
-  const [view, setView] = useState("intro");
+  const [view, setView] = useState(() => (
+    window.location.hash === "#products" ? "catalog" : "intro"
+  ));
   const [transitioning, setTransitioning] = useState(false);
   const [activeCategory, setActiveCategory] = useState(DEFAULT_CATEGORY_ID);
   const [query, setQuery] = useState("");
@@ -813,7 +897,11 @@ export function App() {
 
   useEffect(() => {
     const language = getLanguage(lang);
-    localStorage.setItem("delift-language-v2", language.code);
+    try {
+      localStorage.setItem("delift-language-v2", language.code);
+    } catch {
+      // Storage can be unavailable in private or hardened browsing modes.
+    }
     document.documentElement.lang = lang === "zh" ? "zh-CN" : lang;
     document.documentElement.dir = language.dir || "ltr";
   }, [lang]);
@@ -821,14 +909,6 @@ export function App() {
   useEffect(() => () => window.clearTimeout(transitionTimerRef.current), []);
 
   useEffect(() => {
-    if (window.location.hash === "#products") {
-      window.history.replaceState(
-        null,
-        "",
-        `${window.location.pathname}${window.location.search}`,
-      );
-    }
-
     const syncViewWithLocation = () => {
       setView(window.location.hash === "#products" ? "catalog" : "intro");
       setSelectedProduct(null);
@@ -849,8 +929,8 @@ export function App() {
 
   function selectLanguage(nextLanguage) {
     const next = getLanguage(nextLanguage).code;
-    localStorage.setItem("delift-language-v2", next);
-    setLang(next);
+    if (next === lang) return;
+    startTransition(() => setLang(next));
   }
 
   function scrollToTarget(target) {
@@ -874,19 +954,19 @@ export function App() {
     }
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     setTransitioning(true);
+    setView("catalog");
+    if (window.location.hash !== "#products") {
+      window.history.pushState(null, "", "#products");
+    }
+    window.scrollTo({ top: 0, behavior: "auto" });
+    window.setTimeout(
+      () => scrollToTarget(pendingTargetRef.current),
+      reducedMotion ? 0 : target === "company" ? 220 : 40,
+    );
     window.clearTimeout(transitionTimerRef.current);
     transitionTimerRef.current = window.setTimeout(() => {
-      setView("catalog");
       setTransitioning(false);
-      if (window.location.hash !== "#products") {
-        window.history.pushState(null, "", "#products");
-      }
-      window.scrollTo({ top: 0, behavior: "auto" });
-      window.setTimeout(
-        () => scrollToTarget(pendingTargetRef.current),
-        reducedMotion ? 0 : target === "company" ? 260 : 40,
-      );
-    }, reducedMotion ? 0 : 620);
+    }, reducedMotion ? 0 : 460);
   }
 
   function returnHome() {
@@ -939,7 +1019,11 @@ export function App() {
       ].some((field) => normalize(field) === value),
     );
     const exact = exactMatches.find((product) => product.category === activeCategory) || exactMatches[0];
-    const match = exact || suggestions[0];
+    const partialMatch = value.length >= 2
+      ? products.find((product) => productSearchValues(product)
+        .some((field) => normalize(field).includes(value)))
+      : null;
+    const match = exact || partialMatch;
     if (match) {
       focusProduct(match);
     } else {
